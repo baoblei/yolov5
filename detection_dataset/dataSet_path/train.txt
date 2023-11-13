@@ -1,0 +1,5 @@
+/home/xsc/yolov5/detection_dataset/images/ship1111.jpg
+/home/xsc/yolov5/detection_dataset/images/QJ5100031600.jpg
+/home/xsc/yolov5/detection_dataset/images/ship134.jpg
+/home/xsc/yolov5/detection_dataset/images/X01_1_0000001750.jpg
+/home/xsc/yolov5/detection_dataset/images/ship1334.jpg

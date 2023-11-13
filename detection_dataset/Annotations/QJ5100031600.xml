@@ -1,0 +1,26 @@
+<annotation>
+	<folder>images</folder>
+	<filename>QJ5100031600.jpg</filename>
+	<path>/Users/baobinglei/detection_dataset/images/QJ5100031600.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>597</width>
+		<height>350</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>ship</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>188</xmin>
+			<ymin>203</ymin>
+			<xmax>307</xmax>
+			<ymax>257</ymax>
+		</bndbox>
+	</object>
+</annotation>

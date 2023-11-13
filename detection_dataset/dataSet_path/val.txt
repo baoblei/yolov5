@@ -1,0 +1,1 @@
+/home/xsc/yolov5/detection_dataset/images/QJ5100031599.jpg

@@ -1,0 +1,9 @@
+train: ship_det/dataSet_path/train.txt
+val: ship_det/dataSet_path/val.txt
+
+# number of classes
+nc: 6
+
+# class names
+names: ['bulk cargo carrier', 'container ship', 'ore carrier', 'passenger ship', 'general cargo ship', 'fishing boat']
+# names: ['person', 'ship']
