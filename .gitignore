@@ -257,3 +257,5 @@ crashlytics-build.properties
 fabric.properties
 
 ship_det/
+dataset_3cls.zip
+data
