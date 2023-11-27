@@ -36,6 +36,7 @@ import os
 import platform
 import sys
 from pathlib import Path
+import numpy as np
 
 import torch
 import socket
@@ -43,6 +44,7 @@ import threading
 import struct
 import select
 import time
+from red_det import detect_objects_infrared, get_rect_area
 
 
 FILE = Path(__file__).resolve()
@@ -107,7 +109,7 @@ class DetecResultQ:
         # 使用循环将每个类对象的属性打包
         packed_results = b""
         for result in self.results:
-            packed_results += struct.pack('iiiiif', result.id.numpy(), result.x.numpy(), result.y.numpy(), result.w.numpy(), result.h.numpy(), result.prob)
+            packed_results += struct.pack('iiiiif', result.id, result.x, result.y, result.w, result.h, result.prob)
 
         self.check = calculate_checksum(packed_header + packed_type + packed_channel + packed_totalw + packed_totalh + packed_m + packed_results)
         packed_check = struct.pack('B', self.check) # 一个字节
@@ -116,16 +118,24 @@ class DetecResultQ:
 
 class DetectResult:   
     def __init__(self, id, x, y, w, h, prob):
-        self.id = id.to('cpu').int()
-        self.x = x.to('cpu').int()
-        self.y = y.to('cpu').int()
-        self.w = w.to('cpu').int()
-        self.h = h.to('cpu').int()
+        if isinstance(id, int):
+            self.id = np.array(id)
+            self.x = np.array(x)
+            self.y = np.array(y)
+            self.w = np.array(w)
+            self.h = np.array(h)
+        else:
+            self.id = id.to('cpu').int() 
+            self.x = x.to('cpu').int()
+            self.y = y.to('cpu').int()
+            self.w = w.to('cpu').int()
+            self.h = h.to('cpu').int()
+            
         self.prob = prob
 
 # 全局变量 cmdid =0: start detect =1: stop detect soruce_cls: 0,1,2,3
 g_cmdid = 0
-g_source_cls = 2
+g_source_cls = 3
 ip_port = ("192.168.8.200", 20005)
 soc = socket.socket()
 lock = threading.Lock()
@@ -202,7 +212,7 @@ def run(
     while True:
         with lock:
             cmdid, source_cls = g_cmdid, g_source_cls
-        
+            # source_cls = 3
         if cmdid==1: 
             print("停止识别！")
             time.sleep(5)
@@ -229,30 +239,55 @@ def run(
             # Run inference
             seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
             for path, im, im0s, vid_cap, s in dataset:
-                with dt[0]:
-                    im = torch.from_numpy(im).to(model.device)
-                    im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
-                    im /= 255  # 0 - 255 to 0.0 - 1.0
-                    if len(im.shape) == 3:
-                        im = im[None]  # expand for batch dim
-                # Inference
-                with dt[1]:
-                    visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
-                    pred = model(im, augment=augment, visualize=visualize)
-                # NMS
-                with dt[2]:
-                    pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+                if source_cls==3:
+                    # 不作分类，类别和置信度默认为0和1.0
+                    cls, confidence = 0, 1.0 
+                    dets = detect_objects_infrared(im0s[0],180,220,0.8)
+                    dets = sorted(dets, key=get_rect_area, reverse=True)
+                    if len(dets)>5:
+                        dets = dets[:5]
+                    results=[]
+                    if len(dets):
+                        for det in dets:
+                            result = DetectResult(cls, det[0], det[1], det[2], det[3], confidence)
+                            results.append(result)
+                        resultQ = DetecResultQ(results=results, channel=source_cls, w=im0s[0].shape[1], h=im0s[0].shape[0], m=len(results))
+                        data_send = resultQ.pack()
+                        print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
+                        try:
+                            soc.sendall(data_send)
+                            print('send success')
+                        except Exception as e3:
+                            print(f"send failed e3: {e3}")
+                            try: 
+                                soc = socket.socket()
+                                soc.connect(ip_port)
+                                continue
+                            except Exception as e4:
+                                print(f"Connection failed e4: {e4}")
+                                time.sleep(5)
+                                continue      
+                    LOGGER.info(f"{len(dets)} detections" if len(dets) else '(no detections)')
+                else:  
+                    with dt[0]:
+                        im = torch.from_numpy(im).to(model.device)
+                        im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
+                        im /= 255  # 0 - 255 to 0.0 - 1.0
+                        if len(im.shape) == 3:
+                            im = im[None]  # expand for batch dim
+                    # Inference
+                    with dt[1]:
+                        visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
+                        pred = model(im, augment=augment, visualize=visualize)
+                    # NMS
+                    with dt[2]:
+                        pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
 
-                # Process predictions
-                results=[]
-                for i, det in enumerate(pred):  # per image
+                    # Process predictions
+                    results=[]
+                    det = pred[0]
                     seen += 1
-                    if webcam:  # batch_size >= 1
-                        p, im0, frame = path[i], im0s[i].copy(), dataset.count
-                        s += f'{i}: '
-                    else:
-                        p, im0, frame = path, im0s.copy(), getattr(dataset, 'frame', 0)
-
+                    p, im0, frame = path[0], im0s[0].copy(), dataset.count
                     p = Path(p)  # to Path
                     s += '%gx%g ' % im.shape[2:]  # print string
                     annotator = Annotator(im0, line_width=line_thickness, example=str(names))
@@ -277,41 +312,38 @@ def run(
                             annotator.box_label(xyxy, label, color=colors(c, True))
                             result = DetectResult(cls, xyxy[0], xyxy[1], xyxy[2]-xyxy[0], xyxy[3]-xyxy[1], confidence)
                             results.append(result)
-
-                    # Stream results
-                    im0 = annotator.result()
-                    resultQ = DetecResultQ(results=results, channel=source_cls, w=im0.shape[1], h=im0.shape[0], m=len(results))  
-                    resultQ.sort_results_by_prob()
-                    data_send = resultQ.pack()
-                    print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
-                    try:
-                        soc.sendall(data_send)
-                        print('send success')
-                    except Exception as e3:
-                        print(f"send failed e3: {e3}")
-                        try: 
-                            soc = socket.socket()
-                            soc.connect(ip_port)
-                            continue
-                        except Exception as e4:
-                            print(f"Connection failed e4: {e4}")
-                            time.sleep(5)
-                            continue      
-                    if view_img:
-                        if platform.system() == 'Linux' and p not in windows:
-                            windows.append(p)
-                            cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
-                            cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
-                        cv2.imshow(str(p), im0)
-                        cv2.waitKey(1)  # 1 millisecond
-
-                    # with lock:
-                    #     if(source_cls!=g_source_cls or g_cmdid==1): 
-                    #         print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
-                    #         break
-
-                # Print time (inference-only)
-                LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
+                        # Stream results
+                        im0 = annotator.result()
+                        resultQ = DetecResultQ(results=results, channel=source_cls, w=im0.shape[1], h=im0.shape[0], m=len(results))  
+                        # resultQ.sort_results_by_prob() # yolo 在max_det中已经设置最大个数，这步可以省略
+                        data_send = resultQ.pack()
+                        print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
+                        try:
+                            soc.sendall(data_send)
+                            print('send success')
+                        except Exception as e3:
+                            print(f"send failed e3: {e3}")
+                            try: 
+                                soc = socket.socket()
+                                soc.connect(ip_port)
+                                continue
+                            except Exception as e4:
+                                print(f"Connection failed e4: {e4}")
+                                time.sleep(5)
+                                continue      
+                        if view_img:
+                            if platform.system() == 'Linux' and p not in windows:
+                                windows.append(p)
+                                cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
+                                cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
+                            cv2.imshow(str(p), im0)
+                            cv2.waitKey(1)  # 1 millisecond
+                    # Print time (inference-only)
+                    LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
+                with lock:
+                    if(source_cls!=g_source_cls or g_cmdid==1): 
+                        print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
+                        break
 
                 # with lock:
                 #     if(source_cls!=g_source_cls or g_cmdid==1):
@@ -335,7 +367,7 @@ def parse_opt():
     parser.add_argument('--view-img', action='store_true', help='show results')
     # parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     # parser.add_argument('--save-csv', action='store_true', default=False, help='save results in CSV format')
-    # # parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
+    # parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
     # parser.add_argument('--save-crop', action='store_true', help='save cropped prediction boxes')
     # parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes',default=[0], nargs='+', type=int, help='filter by class: --classes 0, or --classes 0 2 3')
