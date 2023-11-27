@@ -1,5 +1,7 @@
 import socket
 import struct
+import threading
+import time
 
 a,b = 0, 1
 def calculate_checksum(data):
@@ -55,20 +57,6 @@ class DetecResultQ:
         packed_check = struct.pack('B', self.check)
         return packed_header + packed_type + packed_m + packed_results + packed_check
     
-    def unpack(self,data):
-        # 使用struct.unpack解析二进制数据
-        header, type, m = struct.unpack('Bii', data[:9])
-        
-        # 解析每个类对象的属性
-        results = []
-        offset = 9
-        for _ in range(self.m):
-            result_data = struct.unpack('iiiiif', data[offset:offset+24])
-            results.append(result_data)
-            offset += 24
-
-        check = struct.unpack('B', data[-1:])
-        return header, type, m, results, check
 
 class DetectResult:   
     def __init__(self, id, x, y, w, h, prob):
@@ -89,15 +77,22 @@ data = resultQ.pack()
 
 ip_port = ("192.168.8.200", 20005)
 soc = socket.socket()
+# soc1 = socket.socket()
+# soc1.connect(ip_port)
+soc.connect(ip_port)
 soc.connect(ip_port)
 
-print('发送信息:\n')
+def recv():
+    # print('发送信息:\n')
+    while True:
+        reply = soc.recv(5)
+        cmdid, source_cls = unpack(reply)
+        c=1
+a='1'  
+thread = threading.Thread(target=recv)
+thread.start()
 while True:
-    # soc.sendall(a.encode('utf-8'))
-    soc.sendall(data)
-    reply = soc.recv(5)
-    cmdid, source_cls = unpack(reply)
-    a =1
+    soc.send(a.encode())
+    print('send success')
 
 
-soc.close()       # 关闭连接
