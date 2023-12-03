@@ -44,6 +44,7 @@ import threading
 import struct
 import select
 import time
+from myVideoCapture import VideoCapture
 from red_det import detect_objects_infrared, get_rect_area
 
 
@@ -191,7 +192,7 @@ def run(
     global g_cmdid
     global g_source_cls
     global soc
-    view_img=True
+    view_img=False
 
     webcam = True
 
@@ -213,7 +214,7 @@ def run(
     while True:
         with lock:
             cmdid, source_cls = g_cmdid, g_source_cls
-            # source_cls = 3
+            # source_cls = 3 
         if cmdid==1: 
             print("停止识别！")
             time.sleep(5)
@@ -228,27 +229,21 @@ def run(
                 source = str('rtsp://admin:abcd1234@192.168.8.108:8555/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif')
             elif source_cls==3: # 红外
                 source = str('rtsp://admin:abcd1234@192.168.8.63:554/Streaming/Channels/101?transportmode=unicast&profile=Profile_1')
-            try:
-                dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride)
-                bs = len(dataset)
-            except Exception as e5:
-                print(f"{e5}:rtsp error")
-                continue
-
-            # Run inference
-            seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
-            for path, im, im0s, vid_cap, s in dataset:
-                if source_cls==3:
+            
+            if source_cls==3:
+                capture = VideoCapture(source)
+                while True:
                     # 不作分类，类别和置信度默认为0和1.0
                     cls, confidence = 0, 1.0
-                    dets = detect_objects_infrared(im0s[0],200,250,0.7)
+                    im0s = capture.read()
+                    dets = detect_objects_infrared(im0s,200,250,0.7)
                     dets = sorted(dets, key=get_rect_area, reverse=True)
                     if len(dets)>5:
                         dets = dets[:5]
                     results=[]
 
                     if view_img:
-                        result_image = cv2.cvtColor(im0s[0], cv2.COLOR_BGR2GRAY)
+                        result_image = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
                         for rect in dets:
                             x,y,w,h = rect
                             cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -257,7 +252,7 @@ def run(
                         for det in dets:
                             result = DetectResult(cls, det[0], det[1], det[2], det[3], confidence)
                             results.append(result)
-                        resultQ = DetecResultQ(results=results, channel=source_cls, w=im0s[0].shape[1], h=im0s[0].shape[0], m=len(results))
+                        resultQ = DetecResultQ(results=results, channel=source_cls, w=im0s.shape[1], h=im0s.shape[0], m=len(results))
                         data_send = resultQ.pack()
                         print('视频源：%d, 启停：%d' % (source_cls, cmdid))
                         try:
@@ -274,7 +269,21 @@ def run(
                                 time.sleep(5)
                                 continue      
                     LOGGER.info(f"{len(dets)} detections" if len(dets) else '(no detections)')
-                else:  
+                    with lock:
+                        if(source_cls!=g_source_cls or g_cmdid==1): 
+                            print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
+                            break
+
+            elif source_cls<3:
+                try:
+                    dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride)
+                    bs = len(dataset)
+                except Exception as e5:
+                    print(f"{e5}:rtsp error")
+                    continue
+                # Run inference
+                seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
+                for path, im, im0s, vid_cap, s in dataset:
                     with dt[0]:
                         im = torch.from_numpy(im).to(model.device)
                         im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
@@ -337,19 +346,19 @@ def run(
                                 print(f"Connection failed e4: {e4}")
                                 time.sleep(5)
                                 continue      
-                        if view_img:
-                            if platform.system() == 'Linux' and p not in windows:
-                                windows.append(p)
-                                cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
-                                cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
-                            cv2.imshow(str(p), im0)
-                            cv2.waitKey(1)  # 1 millisecond
+                    # if view_img:
+                    #     if platform.system() == 'Linux' and p not in windows:
+                    #         windows.append(p)
+                    #         cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
+                    #         cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
+                    #     cv2.imshow(str(p), im0)
+                    #     cv2.waitKey(1)  # 1 millisecond
                     # Print time (inference-only)
                     LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
-                with lock:
-                    if(source_cls!=g_source_cls or g_cmdid==1): 
-                        print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
-                        break
+                    with lock:
+                        if(source_cls!=g_source_cls or g_cmdid==1): 
+                            print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
+                            break
 
 def parse_opt():
     parser = argparse.ArgumentParser()
