@@ -247,13 +247,21 @@ def run(
                     if len(dets)>5:
                         dets = dets[:5]
                     results=[]
+
+                    # if view_img:
+                    #     if platform.system() == 'Linux' and p not in windows:
+                    #         windows.append(p)
+                    #         cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
+                    #         cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
+                    #     cv2.imshow(str(p), im0)
+                    #     cv2.waitKey(1)  # 1 millisecond
                     if len(dets):
                         for det in dets:
                             result = DetectResult(cls, det[0], det[1], det[2], det[3], confidence)
                             results.append(result)
                         resultQ = DetecResultQ(results=results, channel=source_cls, w=im0s[0].shape[1], h=im0s[0].shape[0], m=len(results))
                         data_send = resultQ.pack()
-                        print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
+                        print('视频源：%d, 启停：%d' % (source_cls, cmdid))
                         try:
                             soc.sendall(data_send)
                             print('send success')
@@ -344,11 +352,6 @@ def run(
                     if(source_cls!=g_source_cls or g_cmdid==1): 
                         print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
                         break
-
-                # with lock:
-                #     if(source_cls!=g_source_cls or g_cmdid==1):
-                #         print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
-                #         break
 
 def parse_opt():
     parser = argparse.ArgumentParser()
