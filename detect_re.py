@@ -212,7 +212,7 @@ def run(
     while True:
         with lock:
             cmdid, source_cls = g_cmdid, g_source_cls
-            # source_cls = 3
+            source_cls = 3
         if cmdid==1: 
             print("停止识别！")
             time.sleep(5)
@@ -241,20 +241,19 @@ def run(
             for path, im, im0s, vid_cap, s in dataset:
                 if source_cls==3:
                     # 不作分类，类别和置信度默认为0和1.0
-                    cls, confidence = 0, 1.0 
+                    cls, confidence = 0, 1.0
                     dets = detect_objects_infrared(im0s[0],180,220,0.8)
                     dets = sorted(dets, key=get_rect_area, reverse=True)
                     if len(dets)>5:
                         dets = dets[:5]
                     results=[]
 
-                    # if view_img:
-                    #     if platform.system() == 'Linux' and p not in windows:
-                    #         windows.append(p)
-                    #         cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
-                    #         cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
-                    #     cv2.imshow(str(p), im0)
-                    #     cv2.waitKey(1)  # 1 millisecond
+                    if view_img:
+                        result_image = cv2.cvtColor(im0s[0], cv2.COLOR_GRAY2BGR)
+                        for rect in dets:
+                            x,y,w,h = rect
+                            cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                        cv2.imshow('Result Image', result_image)
                     if len(dets):
                         for det in dets:
                             result = DetectResult(cls, det[0], det[1], det[2], det[3], confidence)

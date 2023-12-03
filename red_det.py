@@ -7,6 +7,11 @@ def get_rect_area(rect):
     return rect[2] * rect[3]
 
 def detect_objects_infrared(image_path, temperature_threshold, distance, overlap, output_path=None):
+    '''
+    temperature_threshold: 温度阈值
+    distance: 高亮度区域合并距离
+    overlap: 重叠检测框合并
+    '''
     # 读取红外图像
     if isinstance(image_path, str) and os.path.isfile(image_path):
         # 如果是文件路径，读取红外图像
