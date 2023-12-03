@@ -135,7 +135,7 @@ class DetectResult:
 
 # 全局变量 cmdid =0: start detect =1: stop detect soruce_cls: 0,1,2,3
 g_cmdid = 0
-g_source_cls = 3
+g_source_cls = 2
 ip_port = ("192.168.8.200", 20005)
 soc = socket.socket()
 lock = threading.Lock()
@@ -191,6 +191,7 @@ def run(
     global g_cmdid
     global g_source_cls
     global soc
+    view_img=True
 
     webcam = True
 
@@ -212,7 +213,7 @@ def run(
     while True:
         with lock:
             cmdid, source_cls = g_cmdid, g_source_cls
-            source_cls = 3
+            # source_cls = 3
         if cmdid==1: 
             print("停止识别！")
             time.sleep(5)
@@ -227,8 +228,6 @@ def run(
                 source = str('rtsp://admin:abcd1234@192.168.8.108:8555/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif')
             elif source_cls==3: # 红外
                 source = str('rtsp://admin:abcd1234@192.168.8.63:554/Streaming/Channels/101?transportmode=unicast&profile=Profile_1')
-            # dataloader()
-            # view_img = check_imshow(warn=True)
             try:
                 dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride)
                 bs = len(dataset)
@@ -242,14 +241,14 @@ def run(
                 if source_cls==3:
                     # 不作分类，类别和置信度默认为0和1.0
                     cls, confidence = 0, 1.0
-                    dets = detect_objects_infrared(im0s[0],180,220,0.8)
+                    dets = detect_objects_infrared(im0s[0],200,250,0.7)
                     dets = sorted(dets, key=get_rect_area, reverse=True)
                     if len(dets)>5:
                         dets = dets[:5]
                     results=[]
 
                     if view_img:
-                        result_image = cv2.cvtColor(im0s[0], cv2.COLOR_GRAY2BGR)
+                        result_image = cv2.cvtColor(im0s[0], cv2.COLOR_BGR2GRAY)
                         for rect in dets:
                             x,y,w,h = rect
                             cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 2)

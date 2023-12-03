@@ -42,7 +42,7 @@ def detect_objects_infrared(image_path, temperature_threshold, distance, overlap
         result_image = cv2.cvtColor(infrared_image, cv2.COLOR_GRAY2BGR)
         for rect in rects:
             x,y,w,h = rect
-            cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.rectangle(result_image, (x, y), (x + w, y + h), (100, 255, 0), 2)
         cv2.imwrite(output_path,result_image)
     
     return rects
