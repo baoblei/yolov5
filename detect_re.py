@@ -214,7 +214,7 @@ def run(
     while True:
         with lock:
             cmdid, source_cls = g_cmdid, g_source_cls
-            # source_cls = 3 
+            source_cls = 3 
         if cmdid==1: 
             print("停止识别！")
             time.sleep(5)
@@ -287,7 +287,6 @@ def run(
                     resultQ = DetecResultQ(results=results, channel=source_cls, w=im0.shape[1], h=im0.shape[0], m=len(results))  
                     # resultQ.sort_results_by_prob() # yolo 在max_det中已经设置最大个数，这步可以省略
                     data_send = resultQ.pack()
-                    print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
                     try:
                         soc.sendall(data_send)
                         print('send success')
@@ -310,6 +309,7 @@ def run(
                     cv2.waitKey(1)  # 1 millisecond
                 # Print time (inference-only)
                 LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
+                print('视频源：%d, 启停：%d' % (source_cls, cmdid))
                 with lock:
                     if(source_cls!=g_source_cls or g_cmdid==1): 
                         print('视频源：%d, 启停：%d' % (g_source_cls, g_cmdid))
