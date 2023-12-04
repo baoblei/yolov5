@@ -192,7 +192,7 @@ def run(
     global g_cmdid
     global g_source_cls
     global soc
-    view_img= False
+    view_img= True
 
     webcam = True
 
@@ -214,7 +214,7 @@ def run(
     while True:
         with lock:
             cmdid, source_cls = g_cmdid, g_source_cls
-            source_cls = 3 
+            # source_cls = 3 
         if cmdid==1: 
             print("停止识别！")
             time.sleep(5)
@@ -322,8 +322,8 @@ def parse_opt():
     parser.add_argument('--source', type=str, default='rtsp://admin:abcd1234@192.168.8.108:8555/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif', help='file/dir/URL/glob/screen/0(webcam)')
     parser.add_argument('--data', type=str, default=ROOT / 'data/myVOC.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
-    parser.add_argument('--conf-thres', type=float, default=0.4, help='confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.4, help='NMS IoU threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.32, help='confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.35, help='NMS IoU threshold')
     parser.add_argument('--max-det', type=int, default=5, help='maximum detections per image')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='show results')
