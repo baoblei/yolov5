@@ -192,14 +192,7 @@ def run(
     global g_cmdid
     global g_source_cls
     global soc
-    view_img= True
-
-    webcam = True
-
-    # Directories
-    save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
-    save_dir.mkdir(parents=True, exist_ok=True)  # make dir
-
+    view_img= False
     # Load model
     device = select_device(device)
     model = DetectMultiBackend(weights, device=device, dnn=dnn, data=data, fp16=half)
@@ -247,8 +240,7 @@ def run(
                         im = im[None]  # expand for batch dim
                 # Inference
                 with dt[1]:
-                    visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
-                    pred = model(im, augment=augment, visualize=visualize)
+                    pred = model(im, augment=augment, visualize=False)
                 # NMS
                 with dt[2]:
                     pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
@@ -258,7 +250,7 @@ def run(
                 det = pred[0]
                 seen += 1
                 p, im0, frame = path[0], im0s[0].copy(), dataset.count
-                p = Path(p)  # to Path
+                p = Path(p)  # to Path (rtsp)
                 s += '%gx%g ' % im.shape[2:]  # print string
                 annotator = Annotator(im0, line_width=line_thickness, example=str(names))
                 if len(det):
