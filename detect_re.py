@@ -44,8 +44,8 @@ import threading
 import struct
 import select
 import time
-from myVideoCapture import VideoCapture
-from red_det import detect_objects_infrared, get_rect_area
+# from myVideoCapture import VideoCapture
+# from red_det import detect_objects_infrared, get_rect_area
 
 
 FILE = Path(__file__).resolve()
@@ -318,12 +318,11 @@ def run(
 def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s.pt', help='model path or triton URL')
-
     parser.add_argument('--source', type=str, default='rtsp://admin:abcd1234@192.168.8.108:8555/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif', help='file/dir/URL/glob/screen/0(webcam)')
     parser.add_argument('--data', type=str, default=ROOT / 'data/myVOC.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
-    parser.add_argument('--conf-thres', type=float, default=0.32, help='confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.35, help='NMS IoU threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.3, help='confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.4, help='NMS IoU threshold')
     parser.add_argument('--max-det', type=int, default=5, help='maximum detections per image')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='show results')
